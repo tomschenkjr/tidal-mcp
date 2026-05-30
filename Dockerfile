@@ -12,6 +12,7 @@ COPY http_server.py .
 COPY README.md .
 COPY README.md .
 COPY README.md .
+COPY README.md .
 
 RUN pip install --no-cache-dir -e .
 
