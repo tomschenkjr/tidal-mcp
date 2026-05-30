@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 COPY src ./src
 COPY http_server.py .
+COPY README.md .
+COPY README.md .
+COPY README.md .
 
 RUN pip install --no-cache-dir -e .
 
