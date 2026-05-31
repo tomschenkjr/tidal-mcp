@@ -7,6 +7,7 @@ No custom business logic - thin wrappers around tidalapi methods.
 """
 
 import json
+import os
 import webbrowser
 from pathlib import Path
 from typing import List, Optional
@@ -15,6 +16,12 @@ import anyio
 import tidalapi
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+
+try:
+    import boto3
+    HAS_BOTO3 = True
+except ImportError:
+    HAS_BOTO3 = False
 
 from .models import (
     # Core entities
@@ -117,11 +124,50 @@ session = tidalapi.Session()
 # Authentication Helpers
 # =============================================================================
 
+
+async def load_session_from_aws_secrets() -> Optional[dict]:
+    """
+    Load TIDAL session credentials from AWS Secrets Manager.
+    Used in containerized deployments.
+    """
+    if not HAS_BOTO3:
+        return None
+
+    secret_name = os.getenv("TIDAL_SECRET_NAME", "mcp/tidal-mcp")
+    region = os.getenv("AWS_REGION", "us-east-1")
+
+    try:
+        client = boto3.client("secretsmanager", region_name=region)
+        response = client.get_secret_value(SecretId=secret_name)
+        return json.loads(response["SecretString"])
+    except Exception:
+        return None
+
+
 async def ensure_authenticated() -> bool:
     """
     Check if user is authenticated with TIDAL.
-    Automatically loads persisted session if available.
+    Automatically loads persisted session from:
+    1. AWS Secrets Manager (if in containerized environment)
+    2. Local session file (for development)
     """
+    # Try AWS Secrets Manager first (for ECS/Lambda deployments)
+    secret_data = await load_session_from_aws_secrets()
+    if secret_data:
+        try:
+            result = await anyio.to_thread.run_sync(
+                session.load_oauth_session,
+                secret_data.get("token_type", "Bearer"),
+                secret_data["access_token"],
+                secret_data["refresh_token"],
+                None,  # expiry time
+            )
+            if result:
+                is_valid = await anyio.to_thread.run_sync(session.check_login)
+                return is_valid
+        except Exception:
+            pass
+
     if await anyio.Path(SESSION_FILE).exists():
         try:
             async with await anyio.open_file(SESSION_FILE, "r") as f:
