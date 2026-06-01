@@ -147,7 +147,17 @@ async def call_tool(request: Request, x_api_key: str = Header(None), authorizati
 
         tool_func = tools_map[tool_name]
         result = await tool_func(**arguments)
-        return {"result": result}
+
+        # Serialize Pydantic models to dicts
+        import json
+        if hasattr(result, 'model_dump'):
+            result_dict = result.model_dump()
+        elif hasattr(result, 'dict'):
+            result_dict = result.dict()
+        else:
+            result_dict = result
+
+        return {"result": result_dict}
     except Exception as e:
         import traceback
         return {"error": str(e), "traceback": traceback.format_exc()}, 500
