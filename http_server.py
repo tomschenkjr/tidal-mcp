@@ -9,7 +9,7 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.http import create_sse_app
 
@@ -53,10 +53,20 @@ sse_app = create_sse_app(
 app.mount("/", sse_app)
 
 
+async def _require_auth(authorization: str = Header(None)) -> None:
+    """Validate Bearer JWT via Cognito; no-op in local dev (auth is None)."""
+    if auth is None:
+        return
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Bearer token")
+    token = authorization[7:]
+    if not await auth.verify_token(token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
 @app.post("/api/call")
-async def call_tool(request: Request, x_api_key: str = Header(None), authorization: str = Header(None)):
-    """Simple HTTP API for invoking tools directly (requires API key)."""
-    verify_api_key(x_api_key, authorization)
+async def call_tool(request: Request, _: None = Depends(_require_auth)):
+    """Simple HTTP API for invoking tools directly (requires Cognito JWT)."""
     body = await request.json()
     tool_name = body.get("tool", "")
     arguments = body.get("arguments", {})
