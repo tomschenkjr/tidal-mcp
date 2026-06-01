@@ -43,6 +43,7 @@ auth = (
         allowed_client_redirect_uris=[
             "http://localhost",
             "https://claude.ai",
+            "https://tidal-mcp.tomschenkjr.net/auth/callback",
         ],
         required_scopes=["tidal-mcp/access"],
         require_authorization_consent=False,
