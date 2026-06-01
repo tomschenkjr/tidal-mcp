@@ -2,15 +2,15 @@
 """
 HTTP server wrapper for TIDAL MCP.
 Exposes the MCP server over HTTP with FastAPI + SSE transport.
-Uses AWS Cognito M2M (client_credentials) for authentication when
-COGNITO_JWKS_URI is set; runs unauthenticated for local development.
+Uses AWS Cognito via OIDCProxy for authentication when COGNITO_OIDC_CONFIG_URL
+is set; runs unauthenticated for local development.
 """
 import os
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
-from fastmcp.server.auth.providers.jwt import JWTVerifier
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from fastmcp.server.http import create_sse_app
 
 # Import the MCP server
@@ -32,15 +32,22 @@ async def health():
     return {"status": "healthy", "service": "tidal-mcp"}
 
 
-jwks_uri = os.getenv("COGNITO_JWKS_URI")
+oidc_config_url = os.getenv("COGNITO_OIDC_CONFIG_URL")
 auth = (
-    JWTVerifier(
-        jwks_uri=jwks_uri,
-        issuer=os.environ["COGNITO_ISSUER"],
-        audience=os.environ["COGNITO_AUDIENCE"],
+    OIDCProxy(
+        config_url=oidc_config_url,
+        client_id=os.environ["COGNITO_CLIENT_ID"],
+        client_secret=os.environ["COGNITO_CLIENT_SECRET"],
+        base_url=os.environ["MCP_BASE_URL"],
+        jwt_signing_key=os.environ["MCP_JWT_SIGNING_KEY"],
+        allowed_client_redirect_uris=[
+            "http://localhost",
+            "https://claude.ai",
+        ],
         required_scopes=["tidal-mcp/access"],
+        require_authorization_consent=False,
     )
-    if jwks_uri
+    if oidc_config_url
     else None
 )
 
