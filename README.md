@@ -1,5 +1,7 @@
 # TIDAL MCP Server
 
+[![Deploy to ECS](https://github.com/tomschenkjr/tidal-mcp/actions/workflows/deploy.yml/badge.svg)](https://github.com/tomschenkjr/tidal-mcp/actions/workflows/deploy.yml)
+
 An MCP (Model Context Protocol) server for TIDAL music streaming. Exposes 27 TIDAL tools to Claude and other MCP clients. Runs locally over stdio or remotely over HTTP with Google OAuth.
 
 ## Connect to the hosted server
