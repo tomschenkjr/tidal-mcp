@@ -41,7 +41,7 @@ auth = (
         base_url=os.environ["MCP_BASE_URL"],
         jwt_signing_key=os.environ["MCP_JWT_SIGNING_KEY"],
         allowed_client_redirect_uris=[
-            "http://localhost",
+            "http://localhost:*",
             "https://claude.ai",
         ],
         required_scopes=["openid"],
