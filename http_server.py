@@ -2,7 +2,7 @@
 """
 HTTP server wrapper for TIDAL MCP.
 Exposes the MCP server over HTTP with FastAPI + SSE transport.
-Uses AWS Cognito via OIDCProxy for authentication when COGNITO_OIDC_CONFIG_URL
+Uses an OIDC provider via OIDCProxy for authentication when OIDC_CONFIG_URL
 is set; runs unauthenticated for local development.
 """
 import os
@@ -32,22 +32,20 @@ async def health():
     return {"status": "healthy", "service": "tidal-mcp"}
 
 
-oidc_config_url = os.getenv("COGNITO_OIDC_CONFIG_URL")
+oidc_config_url = os.getenv("OIDC_CONFIG_URL")
 auth = (
     OIDCProxy(
         config_url=oidc_config_url,
-        client_id=os.environ["COGNITO_CLIENT_ID"],
-        client_secret=os.environ["COGNITO_CLIENT_SECRET"],
+        client_id=os.environ["OIDC_CLIENT_ID"],
+        client_secret=os.environ["OIDC_CLIENT_SECRET"],
         base_url=os.environ["MCP_BASE_URL"],
         jwt_signing_key=os.environ["MCP_JWT_SIGNING_KEY"],
         allowed_client_redirect_uris=[
             "http://localhost",
             "https://claude.ai",
-            "https://tidal-mcp.tomschenkjr.net/auth/callback",
         ],
-        required_scopes=["tidal-mcp/access"],
+        required_scopes=["openid"],
         require_authorization_consent=False,
-        disable_dynamic_client_registration=True,
     )
     if oidc_config_url
     else None
