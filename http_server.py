@@ -2,15 +2,21 @@
 """
 HTTP server wrapper for TIDAL MCP.
 Exposes the MCP server over HTTP with FastAPI + SSE transport.
-Uses an OIDC provider via OIDCProxy for authentication when OIDC_CONFIG_URL
-is set; runs unauthenticated for local development.
+Uses GoogleProvider for authentication when OIDC_CLIENT_ID is set;
+runs unauthenticated for local development.
+
+OIDCProxy + JWTVerifier was replaced with GoogleProvider because Google
+access tokens are opaque strings, not JWTs. JWTVerifier tried to decode
+them against Google's JWKS and failed every time, giving invalid_token
+on every /sse request. GoogleProvider uses GoogleTokenVerifier which
+validates via Google's tokeninfo API instead.
 """
 import os
 from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
-from fastmcp.server.auth.oidc_proxy import OIDCProxy
+from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.http import create_sse_app
 
 # Import the MCP server
@@ -32,11 +38,10 @@ async def health():
     return {"status": "healthy", "service": "tidal-mcp"}
 
 
-oidc_config_url = os.getenv("OIDC_CONFIG_URL")
+oidc_client_id = os.getenv("OIDC_CLIENT_ID")
 auth = (
-    OIDCProxy(
-        config_url=oidc_config_url,
-        client_id=os.environ["OIDC_CLIENT_ID"],
+    GoogleProvider(
+        client_id=oidc_client_id,
         client_secret=os.environ["OIDC_CLIENT_SECRET"],
         base_url=os.environ["MCP_BASE_URL"],
         jwt_signing_key=os.environ["MCP_JWT_SIGNING_KEY"],
@@ -47,7 +52,7 @@ auth = (
         required_scopes=["openid"],
         require_authorization_consent=False,
     )
-    if oidc_config_url
+    if oidc_client_id
     else None
 )
 
@@ -61,13 +66,13 @@ app.mount("/", sse_app)
 
 
 async def _require_auth(authorization: str = Header(None)) -> None:
-    """Validate Bearer JWT via Cognito; no-op in local dev (auth is None)."""
+    """Validate Bearer token; no-op in local dev (auth is None)."""
     if auth is None:
         return
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Bearer token")
     token = authorization[7:]
-    if not await auth.verify_token(token):
+    if not await auth.load_access_token(token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
