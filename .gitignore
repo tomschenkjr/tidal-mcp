@@ -60,8 +60,6 @@ site/
 .env
 .env.local
 
-# Docs
-docs/
 
 # Claude context 
 CLAUDE.md

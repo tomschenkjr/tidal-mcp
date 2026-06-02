@@ -1,181 +1,166 @@
 # TIDAL MCP Server
 
-A traditional MCP (Model Context Protocol) server for TIDAL music streaming service. Clean API wrapper following official MCP best practices - thin wrappers around tidalapi methods with no custom business logic.
+An MCP (Model Context Protocol) server for TIDAL music streaming. Exposes 27 TIDAL tools to Claude and other MCP clients. Runs locally over stdio or remotely over HTTP with Google OAuth.
 
-## Features
+## Connect to the hosted server
 
-### 27 Tools
+The server runs at `https://tidal-mcp.tomschenkjr.net/sse`. Add it to Claude Desktop:
 
-| Category | Tool | Description |
-|----------|------|-------------|
-| **Auth** | `login` | OAuth browser authentication |
-| **Search** | `search_tracks` | Find tracks by name/artist |
-| | `search_albums` | Find albums |
-| | `search_artists` | Find artists |
-| | `search_playlists` | Find public playlists |
-| **Favorites** | `get_favorite_tracks` | Get liked tracks |
-| | `get_favorite_albums` | Get saved albums |
-| | `get_favorite_artists` | Get followed artists |
-| | `add_track_to_favorites` | Like a track |
-| | `remove_track_from_favorites` | Unlike a track |
-| | `remove_album_from_favorites` | Remove saved album |
-| **Playlists** | `get_user_playlists` | List your playlists |
-| | `get_playlist_tracks` | Get tracks from playlist |
-| | `create_playlist` | Create new playlist |
-| | `add_tracks_to_playlist` | Add tracks to playlist |
-| | `remove_tracks_from_playlist` | Remove tracks from playlist |
-| | `update_playlist` | Update name/description |
-| | `delete_playlist` | Delete a playlist |
-| **Albums** | `get_album_tracks` | Get all album tracks |
-| | `get_album` | Get album details |
-| | `get_similar_albums` | Find similar albums |
-| **Artists** | `get_artist` | Get artist details with bio |
-| | `get_artist_albums` | Get artist discography |
-| | `get_artist_top_tracks` | Get popular tracks |
-| | `get_similar_artists` | Find similar artists |
-| **Recommendations** | `get_track_radio` | Similar tracks to seed |
-| | `get_artist_radio` | Tracks based on artist style |
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
-## Installation
+```json
+{
+  "mcpServers": {
+    "tidal": {
+      "type": "sse",
+      "url": "https://tidal-mcp.tomschenkjr.net/sse"
+    }
+  }
+}
+```
+
+On first connection, Claude opens a browser to complete Google OAuth. The session persists — re-authentication is required only if the server's OAuth state is reset or you revoke access.
+
+**Claude web**: Settings → Integrations → Add MCP Server → paste the URL above.
+
+## Tools
+
+27 tools across 7 categories:
+
+| Category          | Tool                          | Description                          |
+|-------------------|-------------------------------|--------------------------------------|
+| **Auth**          | `login`                       | OAuth browser authentication         |
+| **Search**        | `search_tracks`               | Find tracks by name or artist        |
+|                   | `search_albums`               | Find albums                          |
+|                   | `search_artists`              | Find artists                         |
+|                   | `search_playlists`            | Find public playlists                |
+| **Favorites**     | `get_favorite_tracks`         | Get liked tracks                     |
+|                   | `get_favorite_albums`         | Get saved albums                     |
+|                   | `get_favorite_artists`        | Get followed artists                 |
+|                   | `add_track_to_favorites`      | Like a track                         |
+|                   | `remove_track_from_favorites` | Unlike a track                       |
+|                   | `remove_album_from_favorites` | Remove a saved album                 |
+| **Playlists**     | `get_user_playlists`          | List your playlists                  |
+|                   | `get_playlist_tracks`         | Get tracks from a playlist           |
+|                   | `create_playlist`             | Create a new playlist                |
+|                   | `add_tracks_to_playlist`      | Add tracks to a playlist             |
+|                   | `remove_tracks_from_playlist` | Remove tracks from a playlist        |
+|                   | `update_playlist`             | Update playlist name or description  |
+|                   | `delete_playlist`             | Delete a playlist                    |
+| **Albums**        | `get_album_tracks`            | Get all tracks from an album         |
+|                   | `get_album`                   | Get album details                    |
+|                   | `get_similar_albums`          | Find similar albums                  |
+| **Artists**       | `get_artist`                  | Get artist details and biography     |
+|                   | `get_artist_albums`           | Get artist discography               |
+|                   | `get_artist_top_tracks`       | Get an artist's popular tracks       |
+|                   | `get_similar_artists`         | Find similar artists                 |
+| **Recommendations** | `get_track_radio`           | Tracks similar to a seed track       |
+|                   | `get_artist_radio`            | Tracks based on an artist's style    |
+
+## Run locally
 
 ### Requirements
+
 - Python 3.10+
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- [uv](https://github.com/astral-sh/uv)
 
 ### Setup
 
 ```bash
-# Clone and enter directory
+git clone https://github.com/tomschenkjr/tidal-mcp
 cd tidal-mcp
-
-# Install with uv
 uv sync
-
-# Or with pip
-pip install -e .
 ```
 
-## Usage
-
-### With Claude Desktop
-
-Add to your Claude Desktop config:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**Linux**: `~/.config/Claude/claude_desktop_config.json`
+### Connect Claude Desktop to the local server
 
 ```json
 {
   "mcpServers": {
     "tidal": {
       "command": "/path/to/uv",
-      "args": [
-        "--directory", "/path/to/tidal-mcp",
-        "run", "tidal-mcp"
-      ]
+      "args": ["--directory", "/path/to/tidal-mcp", "run", "tidal-mcp"]
     }
   }
 }
 ```
 
-> **Note**: Use full path to `uv` (find with `which uv`)
+Find the full path to `uv` with `which uv`.
 
-### With MCP Inspector
+### Authenticate with TIDAL
 
-```bash
-npx @modelcontextprotocol/inspector uv run tidal-mcp
-```
-
-### Direct Usage
+On first run, authenticate your TIDAL account:
 
 ```bash
-uv run tidal-mcp
+uv run python authenticate.py
 ```
 
-## Authentication
+This opens a browser for TIDAL's OAuth flow and saves the session to `.tidal-sessions/`.
+
+## Run the HTTP server locally
 
 ```bash
-python authenticate.py
+PORT=3000 uv run python http_server.py
 ```
 
-## Example Workflows
+Without `OIDC_CLIENT_ID` set, the server runs without authentication. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full environment variable reference and production deployment instructions.
 
-### Create a Playlist from Search Results
+## Example workflows
 
-1. `login` - Authenticate with TIDAL
-2. `search_tracks("Radiohead Creep")` - Find tracks
-3. `create_playlist("My Playlist", "A collection of favorites")` - Create playlist
-4. `add_tracks_to_playlist(playlist_id, [track_ids...])` - Add tracks
+### Create a playlist from search results
 
-### Browse and Add Album to Playlist
+1. `search_tracks("Radiohead Creep")` — find tracks
+2. `create_playlist("My Playlist", "")` — create a playlist
+3. `add_tracks_to_playlist(playlist_id, [track_ids])` — add tracks
 
-1. `search_albums("OK Computer")` - Find album
-2. `get_album_tracks(album_id)` - Get all tracks
-3. `add_tracks_to_playlist(playlist_id, [all_track_ids...])` - Add to playlist
+### Add an album to a playlist
 
-### Manage Existing Playlist
+1. `search_albums("OK Computer")` — find the album
+2. `get_album_tracks(album_id)` — get all tracks
+3. `add_tracks_to_playlist(playlist_id, [track_ids])` — add to playlist
 
-1. `get_user_playlists()` - List your playlists
-2. `get_playlist_tracks(playlist_id)` - View tracks
-3. `remove_tracks_from_playlist(playlist_id, track_ids=[...])` - Remove tracks
-4. `update_playlist(playlist_id, name="New Name")` - Rename
+### Explore an artist
 
-## Development
+1. `get_artist(artist_id)` — biography and details
+2. `get_artist_top_tracks(artist_id)` — popular tracks
+3. `get_similar_artists(artist_id)` — discover related artists
+4. `get_artist_radio(artist_id)` — tracks in a similar style
 
-### Project Structure
+## Project structure
 
 ```
 tidal-mcp/
-├── pyproject.toml           # Project configuration
-├── README.md                 # This file
-├── CLAUDE.md                # AI development guidance
+├── pyproject.toml        # Project configuration and dependencies
+├── README.md             # This file
+├── http_server.py        # HTTP server with Google OAuth (ECS deployment)
+├── authenticate.py       # Local TIDAL OAuth helper
+├── docs/
+│   └── DEPLOYMENT.md     # AWS ECS deployment guide
 └── src/
     └── tidal_mcp/
-        ├── __init__.py      # Package init
-        ├── models.py        # Pydantic response models
-        └── server.py        # MCP server with 27 tools
+        ├── __init__.py   # Package init
+        ├── models.py     # Pydantic response models
+        └── server.py     # MCP server with 27 tools
 ```
 
-### Dependencies
+## Dependencies
 
-- `fastmcp>=2.12.0` - MCP protocol framework
-- `tidalapi>=0.8.6` - TIDAL API client (v0.8.6+ required for working OAuth)
-- `anyio>=4.0.0` - Async utilities
-
-### Testing
-
-```bash
-# Test with MCP Inspector
-npx @modelcontextprotocol/inspector uv run tidal-mcp
-
-# Quick protocol test
-echo '{"jsonrpc": "2.0", "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0.0"}}, "id": 1}' | uv run tidal-mcp
-```
+| Package            | Purpose                              |
+|--------------------|--------------------------------------|
+| `fastmcp>=2.12.0`  | MCP protocol framework               |
+| `tidalapi>=0.8.6`  | TIDAL API client                     |
+| `anyio>=4.0.0`     | Async utilities                      |
+| `fastapi>=0.104.0` | HTTP server framework                |
+| `uvicorn>=0.24.0`  | ASGI server                          |
+| `boto3>=1.26.0`    | AWS SDK (Secrets Manager, ECS)       |
 
 ## Troubleshooting
 
-### Authentication Fails
-- Ensure tidalapi >= 0.8.6 (older versions have invalid OAuth credentials)
-- Delete `.tidal-sessions/` and re-authenticate
+**Authentication fails locally** — Ensure tidalapi >= 0.8.6. Delete `.tidal-sessions/` and re-run `authenticate.py`.
 
-### Search Returns No Results
-- Simplify query (single artist or song name)
-- Check spelling
+**OAuth loop in Claude Desktop** — Clear the cached MCP connection in Claude settings and reconnect. Claude will re-register and complete a fresh OAuth flow.
 
-### Port Conflicts (Inspector)
-```bash
-pkill -f "inspector|tidal-mcp"
-```
-
-## Future Roadmap
-
-The server currently has 27 tools covering core TIDAL functionality. Potential future additions:
-
-- **Remote Server**: HTTP/SSE transport for Claude.ai and mobile apps (see `docs/REMOTE-DEPLOYMENT.md`)
-- **Advanced Search**: ISRC/UPC lookup for precise track/album identification
-- **Playback**: Queue management and now-playing info (requires TIDAL Connect)
-- **Social**: Following users, collaborative playlists
+**Search returns no results** — Use a simpler query (single artist name or song title).
 
 ## License
 
