@@ -47,6 +47,7 @@ auth = (
         ],
         required_scopes=["tidal-mcp/access"],
         require_authorization_consent=False,
+        disable_dynamic_client_registration=True,
     )
     if oidc_config_url
     else None
